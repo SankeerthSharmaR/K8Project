@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: java-app
+    spec:
+      volumes:
+      - name: shared-volume
+        persistentVolumeClaim:
+          claimName: pvc
+      containers:
+      - name: head
+        image: us-west2-docker.pkg.dev/kuber-5902/one/one:latest
+        ports:
+        - containerPort: 6001
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared/rani_PV_dir
+      - name: brain
+        image: us-west2-docker.pkg.dev/kuber-5902/two/two:latest
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /shared/rani_PV_dir
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: one-service
+spec:
+  selector:
+    app: java-app
+  ports:
+  - protocol: TCP
+    port: 6001
+    targetPort: 6001
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: two
+spec:
+  selector:
+    app: java-app
+  ports:
+  - protocol: TCP
+    port: 5000
+    targetPort: 5000
+  type: ClusterIP
